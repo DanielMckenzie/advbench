@@ -1,0 +1,15 @@
+{
+  "data_dir": "./advbench/data",
+  "output_dir": "train-output",
+  "dataset": "CIFAR10",
+  "algorithm": "KL_DALE_PD",
+  "hparams": null,
+  "hparams_seed": 0,
+  "trial_seed": 0,
+  "seed": 0,
+  "evaluators": [
+    "Clean",
+    "PGD"
+  ],
+  "save_model_every_epoch": false
+}
