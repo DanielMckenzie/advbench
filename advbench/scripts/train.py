@@ -16,7 +16,8 @@ from advbench.lib import misc, meters, reporting
 
 def main(args, hparams, test_hparams):
 
-    device = 'cuda' if torch.cuda.is_available() else 'cpu'
+    # device = 'cuda' if torch.cuda.is_available() else 'cpu'
+    device = 'mps' # for running on apple silicon
     torch.manual_seed(0)
 
     # paths for saving output
@@ -34,7 +35,7 @@ def main(args, hparams, test_hparams):
         pin_memory=False,
         shuffle=True)
     validation_loader = DataLoader(
-        dataset=dataset.splits['validation'],
+        dataset=dataset.splits['val'],
         batch_size=hparams['batch_size'],
         num_workers=dataset.N_WORKERS,
         pin_memory=False,
@@ -62,7 +63,7 @@ def main(args, hparams, test_hparams):
         vars(evalulation_methods)[e](
             algorithm=algorithm,
             device=device,
-            output_dir=args.output_dir,
+            # output_dir=args.output_dir,
             test_hparams=test_hparams)
         for e in args.evaluators]
 
