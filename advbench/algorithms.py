@@ -28,7 +28,8 @@ ALGORITHMS = [
     'CVaR_SGD_PD',
     'ERM_DataAug',
     'TERM',
-    'RandSmoothing'
+    'RandSmoothing',
+    'CVaR_Modified_SGD'
 ]
 
 class Algorithm(nn.Module):

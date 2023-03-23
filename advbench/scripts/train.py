@@ -16,15 +16,16 @@ from advbench.lib import misc, meters, reporting
 
 def main(args, hparams, test_hparams):
 
-    # device = 'cuda' if torch.cuda.is_available() else 'cpu'
-    device = 'mps' # for running on apple silicon
-    torch.manual_seed(0)
-
+    # device = 'cuda:0' if torch.cuda.is_available() else 'cpu'
+    # device = 'mps' # for running on apple silicon
+    
     # paths for saving output
     json_path = os.path.join(args.output_dir, 'results.json')
     ckpt_path = misc.stage_path(args.output_dir, 'ckpts')
     train_df_path = os.path.join(args.output_dir, 'train.pd')
     selection_df_path = os.path.join(args.output_dir, 'selection.pd')
+    device = args.device
+    torch.manual_seed(0)
 
     dataset = vars(datasets)[args.dataset](args.data_dir, device)
 
@@ -193,6 +194,7 @@ if __name__ == '__main__':
     parser.add_argument('--seed', type=int, default=0, help='Seed for everything else')
     parser.add_argument('--evaluators', type=str, nargs='+', default=['Clean'])
     parser.add_argument('--save_model_every_epoch', action='store_true')
+    parser.add_argument('--device', type=str, default='cuda:0', help='Select device')
     args = parser.parse_args()
 
     os.makedirs(os.path.join(args.output_dir), exist_ok=True)
