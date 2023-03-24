@@ -568,22 +568,30 @@ class CVaR_Modified_SGD(Algorithm):
                 cvar_loss += F.relu(curr_loss - ts)                
 
             indicator_avg = indicator_sum / float(M)
-            cvar_loss = (ts + cvar_loss / (float(M) * beta)).mean()
+            cvar_loss = (ts + cvar_loss / (float(M) * beta))
+            cvar_loss_reduced = cvar_loss.mean()
 
             # gradient update on ts
             grad_ts = (1 - (1 / beta) * indicator_avg) / float(imgs.size(0))
             ts = ts - self.hparams['cvar_sgd_t_step_size'] * grad_ts
 
-        # Compute Standard loss for comparison
-        standard_loss = F.cross_entropy(self.predict(imgs), labels, reduction='mean')
-        if cvar_loss > standard_loss:
-            cvar_loss.backward()
-        else:
-            standard_loss.backward()
-        
+        # More fine-grained approach: compare standard loss and cvar loss for each sample in batch
+        standard_loss = F.cross_entropy(self.predict(imgs), labels, reduction='none')
+        loss_vec = torch.where(cvar_loss > standard_loss, cvar_loss, standard_loss)
+        loss_reduced = loss_vec.mean()
+        loss_reduced.backward()
         self.optimizer.step()
 
-        self.meters['Loss'].update(cvar_loss.item(), n=imgs.size(0))
+        # Compute Standard loss for comparison
+        
+        # if cvar_loss > standard_loss:
+        #     cvar_loss.backward()
+        # else:
+        #     standard_loss.backward()
+        
+        # self.optimizer.step()
+
+        self.meters['Loss'].update(loss_reduced.item(), n=imgs.size(0))
         self.meters['avg t'].update(ts.mean().item(), n=imgs.size(0))
         self.meters['plain loss'].update(plain_loss.item() / M, n=imgs.size(0))
-        self.meters['standard loss'].update(standard_loss.item(), n=imgs.size(0))
+        self.meters['standard loss'].update(standard_loss.mean().item(), n=imgs.size(0))
