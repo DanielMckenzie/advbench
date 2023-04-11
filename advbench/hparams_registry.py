@@ -29,9 +29,14 @@ def _hparams(algorithm: str, dataset: str, random_seed: int):
     _hparam('batch_size', 64, lambda r: int(2 ** r.uniform(3, 8)))
 
     # optimization
-    _hparam('learning_rate', 0.01, lambda r: 10 ** r.uniform(-4.5, -2.5))
-    _hparam('sgd_momentum', 0.9, lambda r: r.uniform(0.8, 0.95))
-    _hparam('weight_decay', 3.5e-3, lambda r: 10 ** r.uniform(-6, -3))
+    if 'MNIST' in dataset:
+        _hparam('optimizer', 0, lambda r: int(0 ** r.uniform(3, 8)))
+        _hparam('learning_rate', 1.0, lambda r: 10 ** r.uniform(-3, -2.5))
+    else:
+        _hparam('optimizer', 1, lambda r: int(0 ** r.uniform(3, 8)))
+        _hparam('learning_rate', 0.01, lambda r: 10 ** r.uniform(-4.5, -2.5))
+        _hparam('sgd_momentum', 0.9, lambda r: r.uniform(0.8, 0.95))
+        _hparam('weight_decay', 3.5e-3, lambda r: 10 ** r.uniform(-6, -3))
 
     if 'MNIST' in dataset:
         _hparam('epsilon', 0.3, lambda r: 0.3)
