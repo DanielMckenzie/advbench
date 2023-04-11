@@ -115,10 +115,10 @@ class MNIST(AdvRobDataset):
 
     INPUT_SHAPE = (1, 28, 28)
     NUM_CLASSES = 10
-    N_EPOCHS = 50
+    N_EPOCHS = 150
     CHECKPOINT_FREQ = 10
     LOG_INTERVAL = 100
-    HAS_LR_SCHEDULE = True
+    HAS_LR_SCHEDULE = False
 
     def __init__(self, root, device):
         super(MNIST, self).__init__(device)
@@ -132,18 +132,18 @@ class MNIST(AdvRobDataset):
             train=False,
             transform=transforms.ToTensor())
 
-        # self.splits = {
-        #     'train': Subset(train_data, range(54000)),
-        #     'validation': Subset(train_data, range(54000, 60000)),
-        #     'test': test_data
-        # }
-
-        all_data = ConcatDataset([train_data, test_data])
         self.splits = {
-            'train': all_data,
-            'validation': all_data,
-            'test': all_data
+            'train': Subset(train_data, range(54000)),
+            'val': Subset(train_data, range(54000, 60000)),
+            'test': test_data
         }
+
+        # all_data = ConcatDataset([train_data, test_data])
+        # self.splits = {
+        #     'train': all_data,
+        #     'val': all_data,
+        #     'test': all_data
+        # }
 
     @staticmethod
     def adjust_lr(optimizer, epoch, hparams):
