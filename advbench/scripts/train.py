@@ -195,6 +195,9 @@ if __name__ == '__main__':
     parser.add_argument('--evaluators', type=str, nargs='+', default=['Clean'])
     parser.add_argument('--save_model_every_epoch', action='store_true')
     parser.add_argument('--device', type=str, default='cuda:0', help='Select device')
+    parser.add_argument('--cvar_sgd_beta', type=float, default=None, help='CVaR-SGD beta')
+    parser.add_argument('--epsilon', type=float, default=None, help='Epsilon for PGD attack')
+    parser.add_argument('--cvar_sgd_t_step_size', type=float, default=None, help='CVaR-SGD t step size')
     args = parser.parse_args()
 
     os.makedirs(os.path.join(args.output_dir), exist_ok=True)
@@ -214,6 +217,12 @@ if __name__ == '__main__':
     else:
         seed = misc.seed_hash(args.hparams_seed, args.trial_seed)
         hparams = hparams_registry.random_hparams(args.algorithm, args.dataset, seed)
+        
+    if args.cvar_sgd_beta is not None:
+        hparams.update({'cvar_sgd_beta': args.cvar_sgd_beta})
+
+    if args.cvar_sgd_t_step_size is not None:
+        hparams.update({'cvar_sgd_t_step_size': args.cvar_sgd_t_step_size})
 
     print ('Hparams:')
     for k, v in sorted(hparams.items()):
@@ -223,6 +232,9 @@ if __name__ == '__main__':
         json.dump(hparams, f, indent=2)
 
     test_hparams = hparams_registry.test_hparams(args.algorithm, args.dataset)
+
+    if args.epsilon is not None:
+        test_hparams.update({'epsilon': args.epsilon})
 
     print('Test hparams:')
     for k, v in sorted(test_hparams.items()):
