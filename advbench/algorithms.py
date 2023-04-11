@@ -11,6 +11,10 @@ from advbench import optimizers
 from advbench import attacks
 from advbench.lib import meters
 
+
+# torch.manual_seed(0)
+
+
 ALGORITHMS = [
     'ERM',
     'PGD',
@@ -29,7 +33,8 @@ ALGORITHMS = [
     'ERM_DataAug',
     'TERM',
     'RandSmoothing',
-    'CVaR_Modified_SGD'
+    'CVaR_Modified_SGD',
+    'CVaR_Modified_SGD_Autograd',
 ]
 
 class Algorithm(nn.Module):
@@ -38,11 +43,20 @@ class Algorithm(nn.Module):
         self.hparams = hparams
         self.classifier = networks.Classifier(
             input_shape, num_classes, hparams)
-        self.optimizer = optim.SGD(
-            self.classifier.parameters(),
-            lr=hparams['learning_rate'],
-            momentum=hparams['sgd_momentum'],
-            weight_decay=hparams['weight_decay'])
+        if hparams['optimizer'] == 1:
+            self.optimizer = optim.SGD(
+                self.classifier.parameters(),
+                lr=hparams['learning_rate'],
+                momentum=hparams['sgd_momentum'],
+                weight_decay=hparams['weight_decay'])
+        else:
+            self.optimizer = optim.Adadelta(self.classifier.parameters(), lr=hparams['learning_rate'])
+            print('learning rate is ', hparams['learning_rate'])
+        # self.optimizer = optim.SGD(
+        #     self.classifier.parameters(),
+        #     lr=hparams['learning_rate'],
+        #     momentum=hparams['sgd_momentum'],
+        #     weight_decay=hparams['weight_decay'])
         self.device = device
         
         self.meters = OrderedDict()
@@ -578,6 +592,8 @@ class CVaR_Modified_SGD(Algorithm):
         # More fine-grained approach: compare standard loss and cvar loss for each sample in batch
         standard_loss = F.cross_entropy(self.predict(imgs), labels, reduction='none')
         loss_vec = torch.where(cvar_loss > standard_loss, cvar_loss, standard_loss)
+        # TODO couting the number of times cvar_loss > standard_loss and find the dependence with rho value
+        # TODO replace loss_vec with cvar_loss  and compare with CVaR_SGD
         loss_reduced = loss_vec.mean()
         loss_reduced.backward()
         self.optimizer.step()
@@ -595,3 +611,161 @@ class CVaR_Modified_SGD(Algorithm):
         self.meters['avg t'].update(ts.mean().item(), n=imgs.size(0))
         self.meters['plain loss'].update(plain_loss.item() / M, n=imgs.size(0))
         self.meters['standard loss'].update(standard_loss.mean().item(), n=imgs.size(0))
+
+
+class CVaR_Modified_SGD_Autograd(Algorithm):
+    def __init__(self, input_shape, num_classes, hparams, device):
+        super(CVaR_Modified_SGD_Autograd, self).__init__(input_shape, num_classes, hparams, device)
+        self.meters['avg t'] = meters.AverageMeter()
+        self.meters['plain loss'] = meters.AverageMeter()
+        self.meters['standard loss'] = meters.AverageMeter()
+
+    def sample_deltas(self, imgs):
+        eps = self.hparams['epsilon']
+        return 2 * eps * torch.rand_like(imgs) - eps # sample uniformly on cube [-eps,eps]^{img_size}
+
+    def step(self, imgs, labels):
+
+        beta = self.hparams['cvar_sgd_beta'] # is beta = rho as defined in pseudocode?
+        M = self.hparams['cvar_sgd_M']
+        ts = torch.ones(size=(imgs.size(0),)).to(self.device) # batched array of alpha_j's 
+
+
+        self.optimizer.zero_grad()
+        for _ in range(self.hparams['cvar_sgd_n_steps']):
+
+            ts.requires_grad = True
+            cvar_loss = 0
+            for _ in range(M):
+                pert_imgs = self.img_clamp(imgs + self.sample_deltas(imgs))
+                curr_loss = F.cross_entropy(self.predict(pert_imgs), labels, reduction='none')
+                cvar_loss += F.relu(curr_loss - ts)
+    
+            cvar_loss = (ts + cvar_loss / (float(M) * beta)).mean()
+            grad_ts = torch.autograd.grad(cvar_loss, [ts])[0].detach()
+            ts = ts - self.hparams['cvar_sgd_t_step_size'] * grad_ts
+            ts = ts.detach()
+
+        for _ in range(self.hparams['cvar_sgd_n_steps']):
+
+            plain_loss, cvar_loss, indicator_sum = 0, 0, 0
+            for _ in range(self.hparams['cvar_sgd_M']):
+                pert_imgs = self.img_clamp(imgs + self.sample_deltas(imgs))
+                curr_loss = F.cross_entropy(self.predict(pert_imgs), labels, reduction='none')
+                indicator_sum += torch.where(curr_loss > ts, torch.ones_like(ts), torch.zeros_like(ts)) # returns 0 or 1 depending on condition curr_loss > ts 
+
+                plain_loss += curr_loss.mean()
+                cvar_loss += F.relu(curr_loss - ts)                
+
+            indicator_avg = indicator_sum / float(M)
+            cvar_loss = (ts + cvar_loss / (float(M) * beta))
+            cvar_loss_reduced = cvar_loss.mean()
+
+
+        # More fine-grained approach: compare standard loss and cvar loss for each sample in batch
+        standard_loss = F.cross_entropy(self.predict(imgs), labels, reduction='none')
+        loss_vec = torch.where(cvar_loss > standard_loss, cvar_loss, standard_loss)
+        loss_reduced = loss_vec.mean()
+        loss_reduced.backward()
+        self.optimizer.step()
+
+        # Compute Standard loss for comparison
+        
+        # if cvar_loss > standard_loss:
+        #     cvar_loss.backward()
+        # else:
+        #     standard_loss.backward()
+        
+        # self.optimizer.step()
+
+        self.meters['Loss'].update(loss_reduced.item(), n=imgs.size(0))
+        self.meters['avg t'].update(ts.mean().item(), n=imgs.size(0))
+        self.meters['plain loss'].update(plain_loss.item() / M, n=imgs.size(0))
+        self.meters['standard loss'].update(standard_loss.mean().item(), n=imgs.size(0))
+
+
+
+
+
+class CVaR_Validation_SGD_Autograd(Algorithm):
+    def __init__(self, input_shape, num_classes, hparams, device):
+        super(CVaR_Validation_SGD_Autograd, self).__init__(input_shape, num_classes, hparams, device)
+        self.meters['avg t'] = meters.AverageMeter()
+        self.meters['plain loss'] = meters.AverageMeter()
+        self.meters['standard loss'] = meters.AverageMeter()
+
+    def sample_deltas(self, imgs):
+        eps = self.hparams['epsilon']
+        return 2 * eps * torch.rand_like(imgs) - eps # sample uniformly on cube [-eps,eps]^{img_size}
+
+    def step(self, imgs, labels):
+
+        beta = self.hparams['cvar_sgd_beta'] # is beta = rho as defined in pseudocode?
+        M = self.hparams['cvar_sgd_M']
+        # ts = torch.zeros(size=(imgs.size(0),)).to(self.device) # batched array of alpha_j's 
+        ts = torch.ones(size=(imgs.size(0),)).to(self.device) # batched array of alpha_j's 
+
+
+        self.optimizer.zero_grad()
+        for _ in range(self.hparams['cvar_sgd_n_steps']):
+
+            ts.requires_grad = True
+            cvar_loss = 0
+            for _ in range(M):
+                pert_imgs = self.img_clamp(imgs + self.sample_deltas(imgs))
+                curr_loss = F.cross_entropy(self.predict(pert_imgs), labels, reduction='none')
+                cvar_loss += F.relu(curr_loss - ts)
+    
+            cvar_loss = (ts + cvar_loss / (float(M) * beta)).mean()
+            grad_ts = torch.autograd.grad(cvar_loss, [ts])[0].detach()
+            # print('grad_ts: ', grad_ts)
+            # grad_ts = 0.1 * grad_ts
+            ts = ts - self.hparams['cvar_sgd_t_step_size'] * grad_ts
+            ts = ts.detach()
+
+
+
+        for _ in range(self.hparams['cvar_sgd_n_steps']):
+
+            plain_loss, cvar_loss, indicator_sum = 0, 0, 0
+            for _ in range(self.hparams['cvar_sgd_M']):
+                pert_imgs = self.img_clamp(imgs + self.sample_deltas(imgs))
+                curr_loss = F.cross_entropy(self.predict(pert_imgs), labels, reduction='none')
+                indicator_sum += torch.where(curr_loss > ts, torch.ones_like(ts), torch.zeros_like(ts)) # returns 0 or 1 depending on condition curr_loss > ts 
+
+                plain_loss += curr_loss.mean()
+                cvar_loss += F.relu(curr_loss - ts)                
+
+            indicator_avg = indicator_sum / float(M)
+            cvar_loss = (ts + cvar_loss / (float(M) * beta))
+            cvar_loss_reduced = cvar_loss.mean()
+
+
+        # More fine-grained approach: compare standard loss and cvar loss for each sample in batch
+        standard_loss = F.cross_entropy(self.predict(imgs), labels, reduction='none')
+        loss_vec = torch.where(cvar_loss > standard_loss, cvar_loss, standard_loss)
+        # Use cvar_loss as the loss function
+        # loss_vec = cvar_loss + standard_loss
+        loss_reduced = loss_vec.mean()
+        loss_reduced.backward()
+
+        self.optimizer.step()
+
+        # Compute Standard loss for comparison
+        
+        # if cvar_loss > standard_loss:
+        #     cvar_loss.backward()
+        # else:
+        #     standard_loss.backward()
+        
+        # self.optimizer.step()
+
+        self.meters['Loss'].update(loss_reduced.item(), n=imgs.size(0))
+        self.meters['avg t'].update(ts.mean().item(), n=imgs.size(0))
+        self.meters['plain loss'].update(plain_loss.item() / M, n=imgs.size(0))
+        self.meters['standard loss'].update(standard_loss.mean().item(), n=imgs.size(0))
+
+
+
+
+
