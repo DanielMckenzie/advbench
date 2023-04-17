@@ -1,0 +1,17 @@
+{
+  "test_betas": [
+    0.1,
+    0.05,
+    0.01
+  ],
+  "aug_n_samples": 100,
+  "epsilon": 0.3,
+  "pgd_n_steps": 10,
+  "pgd_step_size": 0.1,
+  "trades_n_steps": 10,
+  "trades_step_size": 0.1,
+  "cvar_sgd_t_step_size": 0.5,
+  "cvar_sgd_beta": 0.05,
+  "cvar_sgd_M": 10,
+  "cvar_sgd_n_steps": 10
+}

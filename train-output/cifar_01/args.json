@@ -1,0 +1,20 @@
+{
+  "data_dir": "./advbench/data",
+  "output_dir": "train-output/cifar_01",
+  "dataset": "CIFAR10",
+  "algorithm": "CVaR_SGD_Autograd",
+  "hparams": null,
+  "hparams_seed": 0,
+  "trial_seed": 0,
+  "seed": 0,
+  "evaluators": [
+    "Clean",
+    "PGD",
+    "Augmented"
+  ],
+  "save_model_every_epoch": false,
+  "device": "cuda:0",
+  "cvar_sgd_beta": 0.1,
+  "epsilon": null,
+  "cvar_sgd_t_step_size": 1.0
+}
