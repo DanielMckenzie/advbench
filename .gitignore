@@ -1,4 +1,6 @@
 advbench/data/*
+advbench/train-output/*
+advbench/train-output-noAutoGrad/*
 __pycache__/
 .vscode
 TODO.md
