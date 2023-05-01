@@ -1,4 +1,5 @@
 import torch
+import numpy as np
 from torch.utils.data import Subset, ConcatDataset, TensorDataset
 import torchvision.transforms as transforms
 from torchvision.datasets import CIFAR10 as CIFAR10_
@@ -177,8 +178,24 @@ class SVHN(AdvRobDataset):
         test_transforms = transforms.ToTensor()
 
         train_data = SVHN_(root, split='train', transform=train_transforms, download=True)
-        self.splits['train'] = train_data
-        self.splits['test'] = SVHN_(root, split='test', transform=test_transforms, download=True)
+        # self.splits['train'] = train_data
+        # self.splits['test'] = SVHN_(root, split='test', transform=test_transforms, download=True)
+        test_data = SVHN_(root, split='test', transform=test_transforms, download=True)
+
+        # Calculate the number of validation samples (10% of the total training data)
+        val_samples = int(0.1 * len(train_data))
+
+        # Split the training data into training and validation sets
+        train_indices = np.arange(len(train_data))
+        val_indices = np.arange(len(train_data) - val_samples, len(train_data))
+
+        self.splits = {
+            'train': Subset(train_data, train_indices),
+            'val': Subset(train_data, val_indices),
+            'test': test_data
+        }
+
+        self.splits['val'].dataset.transform = test_transforms
 
     @staticmethod
     def adjust_lr(optimizer, epoch, hparams):

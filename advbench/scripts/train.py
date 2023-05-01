@@ -198,6 +198,8 @@ if __name__ == '__main__':
     parser.add_argument('--cvar_sgd_beta', type=float, default=None, help='CVaR-SGD beta')
     parser.add_argument('--epsilon', type=float, default=None, help='Epsilon for PGD attack')
     parser.add_argument('--cvar_sgd_t_step_size', type=float, default=None, help='CVaR-SGD t step size')
+    parser.add_argument('--batch_size', type=int, default=None, help='Batch size')
+    parser.add_argument
     args = parser.parse_args()
 
     os.makedirs(os.path.join(args.output_dir), exist_ok=True)
@@ -211,6 +213,7 @@ if __name__ == '__main__':
 
     if args.dataset not in vars(datasets):
         raise NotImplementedError(f'Dataset {args.dataset} is not implemented.')
+    
 
     if args.hparams_seed == 0:
         hparams = hparams_registry.default_hparams(args.algorithm, args.dataset)
@@ -218,6 +221,8 @@ if __name__ == '__main__':
         seed = misc.seed_hash(args.hparams_seed, args.trial_seed)
         hparams = hparams_registry.random_hparams(args.algorithm, args.dataset, seed)
         
+    if args.batch_size is not None:
+        hparams.update({'batch_size': args.batch_size})
     if args.cvar_sgd_beta is not None:
         hparams.update({'cvar_sgd_beta': args.cvar_sgd_beta})
 
