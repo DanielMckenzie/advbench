@@ -125,11 +125,13 @@ class MNIST(AdvRobDataset):
         super(MNIST, self).__init__(device)
         
         train_data = TorchvisionMNIST(
-            root=root, 
+            root=root,
+            download=True, 
             train=True, 
             transform=transforms.ToTensor())
         test_data = TorchvisionMNIST(
             root=root,
+            download=True,
             train=False,
             transform=transforms.ToTensor())
 
