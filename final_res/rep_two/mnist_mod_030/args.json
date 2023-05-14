@@ -1,0 +1,18 @@
+{
+  "data_dir": "./advbench/data",
+  "output_dir": "train-output/mnist_mod_03",
+  "dataset": "MNIST",
+  "algorithm": "CVaR_Modified_SGD_Autograd",
+  "hparams": null,
+  "hparams_seed": 0,
+  "trial_seed": 0,
+  "seed": 0,
+  "evaluators": [
+    "Clean",
+    "PGD",
+    "Augmented"
+  ],
+  "save_model_every_epoch": false,
+  "device": "cuda:0",
+  "cvar_sgd_beta": 0.3
+}
